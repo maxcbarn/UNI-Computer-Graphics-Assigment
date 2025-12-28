@@ -29,7 +29,10 @@ async function main( ) {
   let then = 0;
 
   scene = new World( gl , null , "world" );
-  scene.AddToScene( "world" , new Sphere( gl , programs.baseProgram , "planet" ) ); 
+  scene.AddToScene( "world" , new Sphere( gl , programs.baseProgram , "planet" ) );
+  scene.Search( "planet" ).drawWireframe = true;
+  
+
   requestAnimationFrame( DrawScene );
   
   function DrawScene( now ) {
@@ -46,11 +49,14 @@ async function main( ) {
     let viewMatrix = matrix4x4.ViewMatrix( camera.translation , camera.up , camera.target );
     
     
+    /* scene.Search( "planet" ).RemakeVao( gl , scene.Search( "planet" ).radius , scene.Search( "planet" ).pointsPerCurve , scene.Search( "planet" ).divisions ); */
+    scene.Search( "planet" ).rotation[0] += 1 * deltaTime;
     scene.CalculateWorldMatrix( matrix4x4.Mult( projectionMatrix , viewMatrix ) );
     scene.Draw( gl , viewMatrix , projectionMatrix , gl.LINES );
     requestAnimationFrame( DrawScene );
   }
 }
+
 
 async function SetupProgramBaseProgram( programs , gl ) { 
   programs.baseProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "shader.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "shader.frag" ) );

@@ -23,5 +23,14 @@ export var vector4 =  {
     Cross: function(a, b) {
         return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
     },
+    Lerp: function( a , b , t ) {
+        return vector4.Sum( vector4.MultByEscalar( a , 1 - t ) , vector4.MultByEscalar( b , t ) );
+    },
+    ToVector3: function( a ) {
+        return [ a[0] , a[1] , a[2] ];
+    },
+    Dot: function( a , b )  {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
 }
 
