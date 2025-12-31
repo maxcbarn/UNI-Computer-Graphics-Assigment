@@ -12,22 +12,28 @@ export var vector4 =  {
     MultByEscalar: function( vector , escalar ) {
         return [ vector[0] * escalar , vector[1] * escalar , vector[2] * escalar , vector[3] ];
     },
+    Sub: function( vec1 , vec2 ) {
+        return [ vec2[0] - vec1[0] , vec2[1] - vec1[1] , vec2[2] - vec1[2] , 1 ];
+    }, 
     Normalize: function(v) {
         var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         if (length > 0.00001) {
             return [v[0] / length, v[1] / length, v[2] / length];
         } else {
-            return [0, 0, 0];
+            return [0, 0, 0 , 1];
         }   
     },
     Cross: function(a, b) {
-        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] , 1];
     },
     Lerp: function( a , b , t ) {
         return vector4.Sum( vector4.MultByEscalar( a , 1 - t ) , vector4.MultByEscalar( b , t ) );
     },
     ToVector3: function( a ) {
         return [ a[0] , a[1] , a[2] ];
+    },
+    ToVector4: function( v ) {
+        return [ v[0] , v[1] , v[2] , 1 ];
     },
     Dot: function( a , b )  {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];

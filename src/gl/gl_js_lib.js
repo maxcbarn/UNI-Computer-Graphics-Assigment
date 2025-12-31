@@ -1,7 +1,7 @@
 import * as js_lib from "../web_lib/js_lib.js"
 
 export function Setup( canvas , gl ) {
-  gl.clearColor( 0 , 0 , 0 , 0 );
+  gl.clearColor( 0.5, 0.5, 0.5, 1.0 );
   gl.canvas.width = canvas.width;
   gl.canvas.height = canvas.height;
   gl.enable( gl.CULL_FACE )

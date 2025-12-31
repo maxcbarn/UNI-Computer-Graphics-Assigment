@@ -1,0 +1,24 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+canvas {
+    display: block;
+    top: 0;
+    left: 0;
+    position: absolute;
+    
+    z-index: 1;
+}
+#slidecontainer {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    right: 0;
+    top: 0;
+    padding: 10px 10px 0px 0px;
+    gap: 10px;
+    z-index: 2;
+}
