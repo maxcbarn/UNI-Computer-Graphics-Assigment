@@ -1,7 +1,7 @@
-import { matrix4x4 } from "./math/matrix.js";
-import { vector4  } from "./math/vector.js";
-import * as Spline from "./math/spline.js"
-import { PerlinNoise3d } from "./math/perlin.js";
+import { matrix4x4 } from "../math/matrix.js";
+import { vector4  } from "../math/vector.js";
+import * as Spline from "../math/spline.js"
+import { PerlinNoise3d } from "../math/perlin.js";
 
 export class Obj {
     name = "obj"
@@ -48,7 +48,7 @@ export class Obj {
         this.worldMatrix = matrix4x4.Mult( this.worldMatrix , viewMatrix );
     }
 
-    Draw( gl , viewMatrix , projectionMatrix ) {
+    Draw( gl ) {
         gl.useProgram( this.program.program );
         gl.uniformMatrix4fv( this.program.u_matrix , true , this.worldMatrix);
         gl.bindVertexArray( this.vao );
@@ -61,7 +61,7 @@ export class Obj {
             gl.drawElements( gl.TRIANGLES , this.countFaces , gl.UNSIGNED_SHORT, 0);
         } 
         for (let index = 0; index < this.children.length; index++) {
-            this.children[index].Draw( gl , viewMatrix , projectionMatrix , type );
+            this.children[index].Draw( gl  );
         }
     }
     AddToScene( parentName , obj ) {
@@ -120,9 +120,9 @@ export class World extends Obj {
             this.children[index].CalculateWorldMatrix( parentMatrix );
         }
     }
-    Draw( gl , viewMatrix , projectionMatrix , type ) {
+    Draw( gl ) {
         for (let index = 0; index < this.children.length; index++) {
-            this.children[index].Draw( gl , viewMatrix , projectionMatrix , type );
+            this.children[index].Draw( gl );
         }
     }
 }
@@ -142,7 +142,7 @@ export class Sphere extends Obj {
     perlinNoise = [];
     pointsPerCurve = 128;
     divisions = 128;
-    radius = 100;
+    radius = 150;
     f1 = 0.0138001;
     a1 = 25;
     f2 = 0.0141001; 

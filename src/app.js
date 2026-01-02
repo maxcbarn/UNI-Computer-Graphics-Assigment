@@ -2,30 +2,29 @@
 
 import { matrix4x4 } from "./math/matrix.js";
 import { vector4 } from "./math/vector.js";
-import { Obj, Sphere , World } from "./objects.js";
+import { Obj, Sphere , World } from "./objs/objects.js";
 import * as gl_lib from "./gl/gl_js_lib.js" ;
 import * as web_lib from "./web_lib/js_lib.js" ;
 import * as ui_slider from "./web_lib/ui_slider.js";
+import { Camera } from "./objs/camera.js";
   
+var moveCloser = false;
+var moveAway = false;
+
 async function main( ) {
   const htmlObjs = { canvas:null };
   const programs = { baseProgram: { } };
-  const camera = { translation:null , up:null , target:null };
-  const vaos = {};
-  const indexBuffers = {};
   let scene;
+  let camera = new Camera();
   
   htmlObjs.canvas = document.querySelector("#canvas");
   web_lib.ResizeCanvas( htmlObjs.canvas );
+  SetupInput();
   
   let gl = htmlObjs.canvas.getContext("webgl2");
   gl_lib.Setup( canvas , gl );
 
   await SetupProgramBaseProgram( programs , gl );
-
-  camera.up = vector4.Create( 0 , 1 , 0 , 0 );
-  camera.target = vector4.Create( 0 , 0 , 1 , 0 );
-  camera.translation = vector4.Create( 0 , 0 , -256 , 1 );  
 
   let then = 0;
 
@@ -46,15 +45,11 @@ async function main( ) {
     let deltaTime = now - then;
     then = now;
     
-    let projectionMatrix = matrix4x4.Perspective( 60 , gl.canvas.clientWidth / gl.canvas.clientHeight , 1 , 1000 );
-    //let projectionMatrix = matrix4x4.Orthographic( 0 , gl.canvas.clientWidth , gl.canvas.clientHeight , 0 , 1 , 100 );
-    let viewMatrix = matrix4x4.ViewMatrix( camera.translation , camera.up , camera.target );
-    
-    
-    /* scene.Search( "planet" ).RemakeVao( gl , scene.Search( "planet" ).radius , scene.Search( "planet" ).pointsPerCurve , scene.Search( "planet" ).divisions ); */
+    InputToFunction( camera , deltaTime );
+
     scene.Search( "planet" ).rotation[0] += 0.5 * deltaTime;
-    scene.CalculateWorldMatrix( matrix4x4.Mult( projectionMatrix , viewMatrix ) );
-    scene.Draw( gl , viewMatrix , projectionMatrix , gl.LINES );
+    scene.CalculateWorldMatrix( camera.GetViewProjectionMatrix( gl ) );
+    scene.Draw( gl );
     requestAnimationFrame( DrawScene );
   }
 }
@@ -84,6 +79,33 @@ async function SetupProgramBaseProgram( programs , gl ) {
   programs.baseProgram.u_texture = gl.getUniformLocation( programs.baseProgram.program , "u_texture" );
   programs.baseProgram.a_uv_cord = gl.getAttribLocation( programs.baseProgram.program , "a_uv_cord" );
   programs.baseProgram.a_normal = gl.getAttribLocation( programs.baseProgram.program , "a_normal" );
+}
+
+function InputToFunction( camera , deltaTime ) {
+  if( moveCloser ) {
+    camera.MoveCloser( deltaTime );
+    moveCloser = false;
+  }
+  if( moveAway ) {
+    camera.MoveAway( deltaTime );
+    moveAway = false;
+  }
+}
+
+function SetupInput( ) {
+  document.addEventListener('keypress', (event) => {
+    switch (event.key) {
+      case 'z':
+        moveCloser = true;
+        break;
+      case 'x':
+        moveAway = true;
+        break;
+    
+      default:
+        break;
+    }
+});
 }
 
 
