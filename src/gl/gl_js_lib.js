@@ -52,7 +52,7 @@ export function Setup( canvas , gl ) {
 }
 
 export async function CreateShader(gl, type, sourceFileName ) {
-  let source = await js_lib.ReadFile( "./src/gl/" + sourceFileName );
+  let source = await js_lib.ReadFile( "/src/gl/" + sourceFileName );
   let shader = gl.createShader( type );
   gl.shaderSource(shader, source);
   gl.compileShader(shader);

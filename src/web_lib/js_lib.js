@@ -1,4 +1,5 @@
 export async function ReadFile( fileLocation ) {
+  console.log(fileLocation);
   return await fetch( fileLocation ).then(response => { return response.text(); });
 }
 
