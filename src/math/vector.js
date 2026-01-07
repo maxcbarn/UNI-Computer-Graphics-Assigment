@@ -18,7 +18,7 @@ export var vector4 =  {
     Normalize: function(v) {
         var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         if (length > 0.00001) {
-            return [v[0] / length, v[1] / length, v[2] / length];
+            return [v[0] / length, v[1] / length, v[2] / length , 1];
         } else {
             return [0, 0, 0 , 1];
         }   
@@ -40,6 +40,53 @@ export var vector4 =  {
     },
     Dist: function( v1 , v2 ) {
         return Math.sqrt( Math.pow( v1[0] - v2[0] , 2 ) + Math.pow( v1[1] - v2[1] , 2 ) + Math.pow( v1[2] - v2[2] , 2 ) );
-    }
+    },
+    Lenght: function( v1 ) {
+        return Math.sqrt( Math.pow( v1[0] , 2 ) + Math.pow( v1[1] , 2 ) + Math.pow( v1[2] , 2 ) );
+    },
+    XAngle: function ( v1 , v2 ) {
+        let p1 = vector4.Create( 0 , v1[1] , v1[2] , 0 );
+        let p2 = vector4.Create( 0 , v2[1] , v2[2] , 0 );
+
+        let len1 = vector4.Lenght(p1);
+        let len2 = vector4.Lenght(p2);
+
+        if (len1 === 0 || len2 === 0) return 0;
+
+        let cosAngle =vector4.Dot(p1, p2) / (len1 * len2);
+
+
+        return Math.acos(cosAngle);
+    },
+    YAngle: function ( v1 , v2 ) {
+        let p1 = vector4.Create( v1[0] , 0 , v1[2] , 0 );
+        let p2 = vector4.Create( v2[0] , 0 , v2[2] , 0 );
+
+                let len1 = vector4.Lenght(p1);
+        let len2 = vector4.Lenght(p2);
+
+        if (len1 === 0 || len2 === 0) return 0;
+
+        let cosAngle =
+            vector4.Dot(p1, p2) / (len1 * len2);
+
+
+        return Math.acos(cosAngle);
+    },
+    ZAngle: function ( v1 , v2 ) {
+        let p1 = vector4.Create( v1[0] , v1[1] , 0 , 0 );
+        let p2 = vector4.Create( v2[0] , v2[1] , 0 , 0 );
+
+                let len1 = vector4.Lenght(p1);
+        let len2 = vector4.Lenght(p2);
+
+        if (len1 === 0 || len2 === 0) return 0;
+
+        let cosAngle =
+            vector4.Dot(p1, p2) / (len1 * len2);
+
+
+        return Math.acos(cosAngle);
+    } 
 }
 

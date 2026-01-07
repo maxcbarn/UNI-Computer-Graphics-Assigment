@@ -2,7 +2,7 @@
 
 import { matrix4x4 } from "./math/matrix.js";
 import { vector4 } from "./math/vector.js";
-import { Obj, Sphere , World } from "./objs/objects.js";
+import { Obj, Sphere , World , Cloud } from "./objs/objects.js";
 import * as gl_lib from "./gl/gl_js_lib.js" ;
 import * as web_lib from "./web_lib/js_lib.js" ;
 import * as ui_slider from "./web_lib/ui_slider.js";
@@ -34,12 +34,14 @@ async function main( ) {
 
   await gl_lib.LoadObj( "./resources/cloud.obj" );
 
-
   let then = 0;
 
   scene = new World( gl , null , "world" );
   scene.AddToScene( "world" , new Sphere( gl , programs.baseProgram , "planet" ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs.baseProgram , "cloud" , scene.Search( "planet" ).radius ) );
+  await scene.Search( "cloud" ).LoadObj( gl );
   scene.Search( "planet" ).drawWireframe = false;
+
   
   SetupUi( gl , scene );
 
@@ -57,7 +59,7 @@ async function main( ) {
     InputToFunction( camera , deltaTime );
 
 
-
+    scene.Animate( gl , deltaTime );
     scene.CalculateWorldMatrix( camera.GetViewProjectionMatrix( gl ) );
     scene.Draw( gl );
     requestAnimationFrame( DrawScene );

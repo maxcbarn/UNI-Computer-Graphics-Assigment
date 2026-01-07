@@ -15,7 +15,7 @@ export var matrix4x4 = {
             0 , 1 , 0 , y , 
             0 , 0 , 1 , z ,
             0 , 0 , 0 , 1 ,
-        ]
+        ];
     },
     ViewMatrix: function( position , up , forward ) {
             let f = vector4.Normalize(forward);
@@ -134,20 +134,14 @@ export var matrix4x4 = {
         m[1]  = r[1];
         m[2]  = r[2];
         m[3]  = -vector4.Dot( r, eye );
-
-        // ROW 1
         m[4]  = u[0];
         m[5]  = u[1];
         m[6]  = u[2];
         m[7]  = -vector4.Dot( u, eye );
-
-        // ROW 2
         m[8]  = -f[0];
         m[9]  = -f[1];
         m[10] = -f[2];
         m[11] =  vector4.Dot( f, eye );
-
-        // ROW 3
         m[12] = 0;
         m[13] = 0;
         m[14] = 0;

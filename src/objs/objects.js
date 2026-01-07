@@ -2,15 +2,18 @@ import { matrix4x4 } from "../math/matrix.js";
 import { vector4  } from "../math/vector.js";
 import * as Spline from "../math/spline.js"
 import { PerlinNoise3d } from "../math/perlin.js";
+import * as gl_lib from "../gl/gl_js_lib.js";
 
 export class Obj {
     name = "obj"
     vao = null;
+    vertexs = [];
     uvCords = [];
     uvBuffer = [];
     normals = [];
     texture = null;
     texturePath = "";
+    indexFaces = [];
     indexBufferFaces = null;
     indexBufferWireframe = null;
     normalBuffer = null;
@@ -27,6 +30,12 @@ export class Obj {
     constructor( gl , program , name ) {
         this.program = program;
         this.name = name;
+    }
+
+    Animate( gl , deltaTime ) {
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].Animate( gl , deltaTime );
+        }        
     }
 
     CalculateWorldMatrix( parentMatrix ) {
@@ -108,6 +117,157 @@ export class Obj {
             gl.deleteBuffer( this.normalBuffer );
             this.normalBuffer = null;
         }
+    }
+}
+
+export class Cloud extends Obj {
+    height = 0;
+    speed = 30;
+    heightPorcentage = 1.1;
+    direction = vector4.Create( 0 , 0 , 1 , 1 );
+    startUp = vector4.Create( 0 , 1 , 0 , 1 );
+    rotationMatrix = matrix4x4.Identity();
+    constructor( gl , program , name , radiusPlanet ) {
+        super( gl , program , name );
+        this.rotation = vector4.Create( 0 , 0 , 0 , 1 ); 
+        this.scale = vector4.Create( 0.1 , 0.1 , 0.1 , 1 );
+        this.position = vector4.Create( 0 , 0 , 0 , 1 );
+        this.SetHeight( radiusPlanet );
+        this.position[1] = this.height;
+    }
+    async LoadObj( gl ) {
+        let obj = await gl_lib.LoadObj( "./resources/cloud.obj" );
+        this.indexFaces = obj.triangles;
+        this.normals = obj.normals;
+        this.uv = obj.uv;
+        this.vertexs = obj.vertexs;
+        for ( let index = 0 ; index < this.vertexs.length ; index++ ) {
+            this.uv.push( [ 0.5 , 0.5 ] );
+        }
+        this.CreateVao( gl );
+    }
+
+    CalculateWorldMatrix( parentMatrix ) {
+        this.worldMatrix = matrix4x4.Identity();
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Translation( this.position[0] , this.position[1] , this.position[2] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.XRotation( this.rotation[0] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.YRotation( this.rotation[1] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.ZRotation( this.rotation[2] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , this.rotationMatrix );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Scaling( this.scale[0] , this.scale[1] , this.scale[2] ) );
+        this.worldMatrix = matrix4x4.Mult( parentMatrix , this.worldMatrix );
+        
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculateWorldMatrix( this.worldMatrix );
+        }
+    }
+
+    SetHeight( radiusPlanet ) {
+        this.height = radiusPlanet * this.heightPorcentage;
+    }
+
+    Animate( gl , deltaTime ) {
+        let auxPosition = vector4.Sum( this.position , vector4.MultByEscalar( this.direction , this.speed * deltaTime ) );
+        let distance = vector4.Lenght( auxPosition );
+        let downSizePorcentage = this.height / distance;
+        auxPosition = vector4.MultByEscalar( auxPosition , downSizePorcentage );
+        this.position = auxPosition; 
+
+        let upDir;
+        upDir = vector4.Normalize( this.position );
+
+        /* if (Math.abs( vector4.Dot( upDir , this.direction ) ) > 0.999) {
+            this.direction = [1, 0, 0, 0];
+        } */
+
+        let right = vector4.Normalize(vector4.Cross( this.direction , upDir));
+        this.direction = vector4.Cross( upDir , right);
+        
+        this.direction = vector4.Normalize( this.direction );
+
+        this.rotationMatrix = [
+            right[0], right[1], right[2] , 0,
+            upDir[0], upDir[1], upDir[2], 0,
+            this.direction[0], this.direction[1], this.direction[2], 0,
+            0, 0, 0, 1
+        ];
+
+        console.log( this.position , right , upDir , this.direction );
+
+        super.Animate( gl );
+    }
+
+
+    CreateVao( gl ) {
+        const vertices = new Float32Array(this.vertexs.flat());
+        /* const indicesWireframe = new Uint16Array(this.indexBufferWireframeCalculated.flat()); */
+        const indicesFaces = new Uint16Array(this.indexFaces.flat());
+        const uvBufferGPU = new Float32Array(this.uv.flat());
+        const normalBufferGPU = new Float32Array(this.normals.flat());
+        const vao = gl.createVertexArray();
+        
+        gl.bindVertexArray(vao);
+        
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.a_position);
+        gl.vertexAttribPointer(this.program.a_position, 3, gl.FLOAT, false, 0, 0);
+
+        const uvBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, uvBufferGPU, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.a_uv_cord);
+        gl.vertexAttribPointer(this.program.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
+        
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, normalBufferGPU, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.a_normal);
+        gl.vertexAttribPointer(this.program.a_normal, 3, gl.FLOAT, false, 0, 0);
+
+        const indexBufferFacesGPU = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferFacesGPU);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesFaces, gl.STATIC_DRAW);
+/* 
+        const indexBufferWireframeGPU = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferWireframeGPU);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesWireframe , gl.STATIC_DRAW); */
+
+        if( this.texture == null ) {
+            let texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            // Fill the texture with a 1x1 blue pixel.
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+            
+            // Asynchronously load an image
+            let image = new Image();
+            image.src = "../resources/cloud_texture.png";
+            image.addEventListener('load', function() {
+              // Now that the image has loaded make copy it to the texture.
+              gl.bindTexture(gl.TEXTURE_2D, texture);
+              gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+              gl.generateMipmap(gl.TEXTURE_2D);
+            });
+            this.texture = texture;
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        }
+        
+        
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+        this.vao = vao;
+        this.normalBuffer = normalBuffer;
+        this.uvBuffer = uvBuffer;
+        this.indexBufferFaces = indexBufferFacesGPU;
+        this.indexBufferWireframe = null;
+        this.countWireframe = 0;
+        this.countFaces = this.indexFaces.length * 3;
     }
 }
 

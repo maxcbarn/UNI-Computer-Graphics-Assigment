@@ -31,14 +31,11 @@ export async function LoadObj( pathToObj ) {
     }
     if( splited[0] == "f" && splited[1] == " "  ) {
       vertexInfo = splited.split( " " );
-      info.triangles.push( [ parseInt( vertexInfo[vertexInfo.length - 1].split( "/" )[0] ) - 1 , parseInt( vertexInfo[vertexInfo.length - 2].split( "/" )[0] ) - 1 , parseInt( vertexInfo[vertexInfo.length - 1].split( "/" )[0] ) ] - 1 );
+      info.triangles.push( [ parseInt( vertexInfo[vertexInfo.length - 1].split( "/" )[0] ) - 1 , parseInt( vertexInfo[vertexInfo.length - 2].split( "/" )[0] ) - 1 , parseInt( vertexInfo[vertexInfo.length - 3].split( "/" )[0] ) - 1 ]  );
       continue;
     }
   }
 
-
-
-  console.log( info );
   return info;
 }
 
@@ -52,7 +49,7 @@ export function Setup( canvas , gl ) {
 }
 
 export async function CreateShader(gl, type, sourceFileName ) {
-  let source = await js_lib.ReadFile( "src/gl/" + sourceFileName );
+  let source = await js_lib.ReadFile( "./src/gl/" + sourceFileName );
   let shader = gl.createShader( type );
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
