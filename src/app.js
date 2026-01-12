@@ -92,7 +92,6 @@ async function SetupProgramBaseProgram( programs , gl ) {
   programs.baseProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "shader.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "shader.frag" ) );
   programs.baseProgram.a_position = gl.getAttribLocation( programs.baseProgram.program , "a_position" );
   programs.baseProgram.u_matrix = gl.getUniformLocation( programs.baseProgram.program , "u_matrix" );
-  console.log( gl.getUniformLocation( programs.baseProgram.program , "u_matrix" ) , gl.getUniformLocation( programs.baseProgram.program , "u_inverseTransposedMatrix" ) );
   programs.baseProgram.u_inverseTransposedMatrix = gl.getUniformLocation( programs.baseProgram.program , "u_inverseTransposedMatrix" );
   programs.baseProgram.u_texture = gl.getUniformLocation( programs.baseProgram.program , "u_texture" );
   programs.baseProgram.a_uv_cord = gl.getAttribLocation( programs.baseProgram.program , "a_uv_cord" );

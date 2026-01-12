@@ -228,7 +228,7 @@ export class Cloud extends Obj {
             
             // Asynchronously load an image
             let image = new Image();
-            image.src = "../resources/cloud_texture.png";
+            image.src = "resources/cloud_texture.png";
             image.addEventListener('load', function() {
               // Now that the image has loaded make copy it to the texture.
               gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -540,7 +540,7 @@ export class Sphere extends Obj {
             
             // Asynchronously load an image
             let image = new Image();
-            image.src = "../resources/planet_texture.png";
+            image.src = "resources/planet_texture.png";
             image.addEventListener('load', function() {
               // Now that the image has loaded make copy it to the texture.
               gl.bindTexture(gl.TEXTURE_2D, texture);
