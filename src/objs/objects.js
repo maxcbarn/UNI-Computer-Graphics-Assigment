@@ -55,12 +55,39 @@ export class Obj {
         }
     }
 
-    Draw( gl , viewMatrix ) {
-        gl.useProgram( this.program.program );
-        gl.uniformMatrix4fv( this.program.u_matrix , true , matrix4x4.Mult( viewMatrix , this.worldMatrix ) );
-        gl.uniformMatrix4fv( this.program.u_inverseTransposedMatrix , true , this.inverseTransposeWorldMatrix );
+    CalculateShadowDepth( gl , projectionMatrix , viewMatrix ) {
+        gl.useProgram( this.program.shadowProgram.program );
+        gl.uniformMatrix4fv( this.program.shadowProgram.u_view , true , viewMatrix );
+        gl.uniformMatrix4fv( this.program.shadowProgram.u_projection , true , projectionMatrix );
+        gl.uniformMatrix4fv( this.program.shadowProgram.u_world , true , this.worldMatrix );
         gl.bindVertexArray( this.vao );
+    
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBufferFaces);
+        gl.drawElements( gl.TRIANGLES , this.countFaces , gl.UNSIGNED_SHORT, 0);
+
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculateShadowDepth( gl , projectionMatrix , viewMatrix );
+        }
+    }
+
+    Draw( gl , projectionMatrix , viewMatrix , textureMatrix , shadowMap ) {
+        gl.useProgram( this.program.baseProgram.program );
+        gl.uniformMatrix4fv( this.program.baseProgram.u_view , true , viewMatrix );
+        gl.uniformMatrix4fv( this.program.baseProgram.u_projection , true , projectionMatrix );
+        gl.uniformMatrix4fv( this.program.baseProgram.u_inverseTransposedMatrix , true , this.inverseTransposeWorldMatrix );
+        gl.uniformMatrix4fv( this.program.baseProgram.u_world , true , this.worldMatrix );
+        gl.uniformMatrix4fv( this.program.baseProgram.u_textureMatrix , true , textureMatrix );
+        gl.bindVertexArray( this.vao );
+
+
+        gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.uniform1i(this.program.baseProgram.u_texture, 0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, shadowMap);
+        gl.uniform1i( this.program.baseProgram.u_shadowMap, 1);
+        
         if( this.drawWireframe ) {
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBufferWireframe);
             gl.drawElements( gl.LINES , this.countWireframe , gl.UNSIGNED_SHORT, 0);
@@ -69,7 +96,7 @@ export class Obj {
             gl.drawElements( gl.TRIANGLES , this.countFaces , gl.UNSIGNED_SHORT, 0);
         } 
         for (let index = 0; index < this.children.length; index++) {
-            this.children[index].Draw( gl , viewMatrix );
+            this.children[index].Draw( gl , projectionMatrix , viewMatrix , textureMatrix , shadowMap );
         }
     }
     AddToScene( parentName , obj ) {
@@ -124,17 +151,17 @@ export class Cloud extends Obj {
     height = 0;
     rotationSpeed = vector4.Identity();
     baseScale = vector4.Identity();
-    heightPorcentage = 1.1;
+    heightPorcentage = 1.125;
     scaleHeight = 0;
-    constructor( gl , program , name , radiusPlanet , baseRotation ) {
+    constructor( gl , program , name , radiusPlanet ) {
         super( gl , program , name );
         this.rotation = vector4.Create( 0 , 0 , 0 , 1 );
-        this.rotation = baseRotation; 
+        this.rotation = vector4.Create( Math.random() % 2 * Math.PI , Math.random() % 2 * Math.PI , Math.random() % 2 * Math.PI ,1 ); 
         this.scale = vector4.Create( 0.1 , 0.1 , 0.1 , 1 );
         this.baseScale = vector4.Create( 0.1 , 0.1 , 0.1 , 1 );
         this.position = vector4.Create( 0 , 0 , 0 , 1 );
         this.baseHeight = radiusPlanet;
-        this.rotationSpeed = vector4.Create( .15 , .15 , .15 , 1 );
+        this.rotationSpeed = vector4.Create( Math.random() % 0.20 , Math.random() % 0.20 , Math.random() % 0.20 , 1 );
         this.SetHeight( radiusPlanet );
     }
     async LoadObj( gl ) {
@@ -175,9 +202,9 @@ export class Cloud extends Obj {
     }
 
     Animate( gl , deltaTime ) {
-        this.rotation[0] += this.rotationSpeed[0] * this.scaleHeight * deltaTime * ( Math.random() % 2 );
-        this.rotation[1] += this.rotationSpeed[1] * this.scaleHeight * deltaTime * ( Math.random() % 2 );
-        this.rotation[2] += this.rotationSpeed[2] * this.scaleHeight * deltaTime * ( Math.random() % 2 );
+        this.rotation[0] += this.rotationSpeed[0] * this.scaleHeight * deltaTime;
+        this.rotation[1] += this.rotationSpeed[1] * this.scaleHeight * deltaTime;
+        this.rotation[2] += this.rotationSpeed[2] * this.scaleHeight * deltaTime;
 
         super.Animate( gl );
     }
@@ -196,20 +223,20 @@ export class Cloud extends Obj {
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_position);
-        gl.vertexAttribPointer(this.program.a_position, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_position);
+        gl.vertexAttribPointer(this.program.baseProgram.a_position, 3, gl.FLOAT, false, 0, 0);
 
         const uvBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, uvBufferGPU, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_uv_cord);
-        gl.vertexAttribPointer(this.program.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_uv_cord);
+        gl.vertexAttribPointer(this.program.baseProgram.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
         
         const normalBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, normalBufferGPU, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_normal);
-        gl.vertexAttribPointer(this.program.a_normal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_normal);
+        gl.vertexAttribPointer(this.program.baseProgram.a_normal, 3, gl.FLOAT, false, 0, 0);
 
         const indexBufferFacesGPU = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferFacesGPU);
@@ -265,20 +292,25 @@ export class World extends Obj {
             this.children[index].CalculateWorldMatrix( parentMatrix );
         }
     }
-    Draw( gl , viewMatrix ) {
+    Draw( gl , projectionMatrix , viewMatrix , textureMatrix , shadowMap ) {
         for (let index = 0; index < this.children.length; index++) {
-            this.children[index].Draw( gl , viewMatrix );
+            this.children[index].Draw( gl , projectionMatrix , viewMatrix , textureMatrix , shadowMap );
+        }
+    }
+    CalculateShadowDepth( gl , projectionMatrix , viewMatrix ) {
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculateShadowDepth( gl , projectionMatrix , viewMatrix );
         }
     }
 }
 
 export class Sphere extends Obj {
     uvBySum = [
-        { bottom: -1e9, top: 0, uv: [0.5, 0.9] }, // water
-        { bottom: 0,    top: 1, uv: [0.5, 0.7] }, // sand
-        { bottom: 1,    top: 4.5, uv: [0.5, 0.5] }, // grass
-        { bottom: 4.5,    top: 9, uv: [0.5, 0.3] }, // mountain
-        { bottom: 9,    top: 1e9, uv: [0.5, 0.1] } // snow
+        { bottom: -1e9, top: 0, uv: [0.5, 0.9], name:"water" }, // water
+        { bottom: 0,    top: 1, uv: [0.5, 0.7], name:"sand" }, // sand
+        { bottom: 1,    top: 4.5, uv: [0.5, 0.5], name:"grass" }, // grass
+        { bottom: 4.5,    top: 9, uv: [0.5, 0.3], name:"mountain" }, // mountain
+        { bottom: 9,    top: 1e9, uv: [0.5, 0.1], name:"snow" } // snow
     ]
     vertexsBeforeNoise = [];
     vertexs = [];
@@ -455,11 +487,22 @@ export class Sphere extends Obj {
         for ( let index = 0 ; index < this.perlinNoise.length ; index++ ) {
             for ( const element of this.uvBySum ) {
                 if( element.bottom < this.perlinNoise[index] && element.top >= this.perlinNoise[index] ) {
-                    this.uvCords.push( element.uv );
+                    if( element.name == "water" ) {
+                        this.uvCords.push( element.uv );
+                        break;
+                    }
+                    if( element.name == "snow" ) {
+                        this.uvCords.push( element.uv );
+                        break;
+                    }
+                    aboveBottom = this.perlinNoise[index] - element.bottom;
+                    range = element.top - element.bottom;
+                    ratio = aboveBottom / range;
+
+                    this.uvCords.push( [ 0.5 , element.uv[1] + 0.1 - 0.2 * ratio ] );                    
                     break;
                 }
             }
-            
         }
         this.CreateNormals( gl );
     }
@@ -508,20 +551,20 @@ export class Sphere extends Obj {
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_position);
-        gl.vertexAttribPointer(this.program.a_position, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_position);
+        gl.vertexAttribPointer(this.program.baseProgram.a_position, 3, gl.FLOAT, false, 0, 0);
 
         const uvBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, uvBufferGPU, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_uv_cord);
-        gl.vertexAttribPointer(this.program.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_uv_cord);
+        gl.vertexAttribPointer(this.program.baseProgram.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
         
         const normalBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, normalBufferGPU, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(this.program.a_normal);
-        gl.vertexAttribPointer(this.program.a_normal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_normal);
+        gl.vertexAttribPointer(this.program.baseProgram.a_normal, 3, gl.FLOAT, false, 0, 0);
 
         const indexBufferFacesGPU = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferFacesGPU);
@@ -540,7 +583,7 @@ export class Sphere extends Obj {
             
             // Asynchronously load an image
             let image = new Image();
-            image.src = "resources/planet_texture.png";
+            image.src = "resources/planet_texturev2.png";
             image.addEventListener('load', function() {
               // Now that the image has loaded make copy it to the texture.
               gl.bindTexture(gl.TEXTURE_2D, texture);

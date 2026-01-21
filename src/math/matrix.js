@@ -17,18 +17,6 @@ export var matrix4x4 = {
             0 , 0 , 0 , 1 ,
         ];
     },
-    ViewMatrix: function( position , up , forward ) {
-            let f = vector4.Normalize(forward);
-            let r = vector4.Normalize(vector4.Cross(f, up));
-            let u = vector4.Cross(r, f);
-
-            return [
-                r[0],  r[1],  r[2],  -vector4.Dot(r, position),
-                u[0],  u[1],  u[2],  -vector4.Dot(u, position),
-            -f[0], -f[1], -f[2],   vector4.Dot(f, position),
-                0,     0,     0,      1,
-            ];
-    },
     Perspective: function(fieldOfViewInDegrees , aspect , near , far) {
         var fov = 1 / Math.tan((fieldOfViewInDegrees * Math.PI) / 180 / 2);
 
@@ -90,6 +78,12 @@ export var matrix4x4 = {
     },
     Orthographic: function(left, right, bottom, top, near, far) {
         let lr = 1 / (right - left);
+        if( right - left == 0 ) {
+            lr = 1;
+        }
+        if( top - bottom == 0 ) {
+            bt = 1;
+        }
         let bt = 1 / (top - bottom);
         let nf = 1 / (near - far);
         return [
@@ -112,11 +106,23 @@ export var matrix4x4 = {
             m03, m13, m23, m33
         ];
     },
+    ViewMatrix: function( position , up , forward ) {
+        let f = vector4.Normalize(forward);
+        let r = vector4.Normalize(vector4.Cross(f, up));
+        let u = vector4.Cross(r, f);
+        //console.log( "View Matrix:\n" + r + "\n " + u + "\n " + f );
+        return [
+            r[0],  r[1],  r[2],  -vector4.Dot(r, position),
+            u[0],  u[1],  u[2],  -vector4.Dot(u, position),
+            -f[0], -f[1], -f[2],   vector4.Dot(f, position),
+            0,     0,     0,      1,
+        ];
+    },
     LookAt: function( eye, target, up ) {
 
         // forward (direção da câmera)
         let f = vector4.Normalize(
-            vector4.Sub( target, eye )
+            vector4.Sub( eye , target )
         );
 
         // right
@@ -128,26 +134,13 @@ export var matrix4x4 = {
         let u = vector4.Cross( r, f );
 
         // matriz de view
-        let m = matrix4x4.Identity();
-
-        m[0]  = r[0];
-        m[1]  = r[1];
-        m[2]  = r[2];
-        m[3]  = -vector4.Dot( r, eye );
-        m[4]  = u[0];
-        m[5]  = u[1];
-        m[6]  = u[2];
-        m[7]  = -vector4.Dot( u, eye );
-        m[8]  = -f[0];
-        m[9]  = -f[1];
-        m[10] = -f[2];
-        m[11] =  vector4.Dot( f, eye );
-        m[12] = 0;
-        m[13] = 0;
-        m[14] = 0;
-        m[15] = 1;
-
-        return m;
+        //console.log( "Look At:\n" + r + "\n " + u + "\n " + f );
+        return [
+            r[0],  r[1],  r[2],  -vector4.Dot(r, eye),
+            u[0],  u[1],  u[2],  -vector4.Dot(u, eye), 
+            -f[0],  -f[1],  -f[2],  vector4.Dot(f, eye),
+            0,     0,     0,      1,
+        ];
     },
 
     Inverse: function(m) {

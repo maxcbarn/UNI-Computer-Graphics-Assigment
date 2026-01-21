@@ -19,7 +19,7 @@ var inputCamera = {
 
 async function main( ) {
   const htmlObjs = { canvas:null };
-  const programs = { baseProgram: { } };
+  const programs = { baseProgram: {} , shadowProgram:{} , backgroundProgram:{} };
   let scene;
   let camera = new Camera();
   
@@ -37,37 +37,162 @@ async function main( ) {
   let then = 0;
 
   scene = new World( gl , null , "world" );
-  scene.AddToScene( "world" , new Sphere( gl , programs.baseProgram , "planet" ) );
-  scene.AddToScene( "planet" , new Cloud( gl , programs.baseProgram , "cloud-1" , scene.Search( "planet" ).radius , vector4.Create( 1 , 0.5 , 1.5 ,1 ) ) );
-  scene.AddToScene( "planet" , new Cloud( gl , programs.baseProgram , "cloud-2" , scene.Search( "planet" ).radius , vector4.Create( 0 , 1.5 , 1.75 ,1 ) ) );
-  scene.AddToScene( "planet" , new Cloud( gl , programs.baseProgram , "cloud-3" , scene.Search( "planet" ).radius , vector4.Create( 0.5 , 0.75 , 0 ,1 ) ) );
+  scene.AddToScene( "world" , new Sphere( gl , programs , "planet" ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-1" , scene.Search( "planet" ).radius ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-2" , scene.Search( "planet" ).radius ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-3" , scene.Search( "planet" ).radius ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-4" , scene.Search( "planet" ).radius ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-5" , scene.Search( "planet" ).radius ) );
+  scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-6" , scene.Search( "planet" ).radius ) );
   await scene.Search( "cloud-1" ).LoadObj( gl );
   await scene.Search( "cloud-2" ).LoadObj( gl );
   await scene.Search( "cloud-3" ).LoadObj( gl );
+  await scene.Search( "cloud-4" ).LoadObj( gl );
+  await scene.Search( "cloud-5" ).LoadObj( gl );
+  await scene.Search( "cloud-6" ).LoadObj( gl );
   scene.Search( "planet" ).drawWireframe = false;
 
-  
   SetupUi( gl , scene );
+
+  const depthTexture = gl.createTexture();
+  const depthTextureSize = 8192;
+  gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT32F, depthTextureSize, depthTextureSize, 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const depthFramebuffer = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D, depthTexture, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+
+  let rotation = 0;
+  let background = { texture: null , vertexs: null, uv: null, vao: null };
+
+  CreateBackGround( gl , background , programs.backgroundProgram );
 
   requestAnimationFrame( DrawScene );
   
   function DrawScene( now ) {
-    web_lib.ResizeCanvas( htmlObjs.canvas );
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
     now *= 0.001;
     let deltaTime = now - then;
     then = now;
-    
-    InputToFunction( camera , deltaTime );
 
+    gl.clear( gl.COLOR_BUFFER_BIT );
+
+    web_lib.ResizeCanvas( htmlObjs.canvas );    
+    
+    let textureMatrix = matrix4x4.Identity();
+    textureMatrix = matrix4x4.Mult( textureMatrix , matrix4x4.Translation( 0.5, 0.5, 0.5 ));
+    textureMatrix = matrix4x4.Mult( textureMatrix , matrix4x4.Scaling( 0.5, 0.5, 0.5 ));
+
+    rotation += 0.05 * deltaTime;
+
+    let position = vector4.Create( 0 , 0 , -750 , 1 );
+    let matrix = matrix4x4.YRotation( rotation );
+
+    InputToFunction( camera , deltaTime );
 
     scene.Animate( gl , deltaTime );
     scene.CalculateWorldMatrix( matrix4x4.Identity() );
-    scene.Draw( gl , camera.GetViewProjectionMatrix( gl ) );
+
+    DrawBackGround( gl , programs.backgroundProgram , background );
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer );
+    gl.viewport(0, 0, depthTextureSize, depthTextureSize);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+
+    
+    let proj = matrix4x4.Orthographic( -1 * depthTextureSize / 2 , depthTextureSize / 2 , -1 * depthTextureSize / 2 , depthTextureSize / 2 , 1 , 1500 );
+    let view = matrix4x4.LookAt( matrix4x4.MultVector4( matrix , position ) , [0 ,0 ,0 ,1 ] , [0,1,0,1] );
+
+    scene.CalculateShadowDepth( gl , proj , view );
+    
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    
+    textureMatrix = matrix4x4.Mult( textureMatrix , proj );
+    textureMatrix = matrix4x4.Mult( textureMatrix , view );
+
+    scene.Draw( gl , camera.GetProjectionMatrix( gl ) , camera.GetViewMatrix( gl ) , textureMatrix , depthTexture );
+    
     requestAnimationFrame( DrawScene );
   }
+}
+
+function DrawBackGround( gl , program , background ) {
+  gl.clear( gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  gl.useProgram(program.program);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, background.texture);
+  gl.uniform1i(program.u_texture, 0);
+
+  gl.bindVertexArray(background.vao);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindVertexArray(null);
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+}
+
+function CreateBackGround( gl , background , program ) {
+  background.texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, background.texture);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  const image = new Image();
+  image.src = "./resources/stared_sky.jpg";
+  image.onload = () => {
+    gl.bindTexture(gl.TEXTURE_2D, background.texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      image
+    );
+  };
+  let backgroundVertexs_js = new Float32Array([
+    -1, -1,
+    1, -1,
+    -1,  1,
+    1,  1,
+  ]);
+  let backgroundUv_js = new Float32Array([
+    0, 0,
+    1, 0,
+    0, 1,
+    1, 1,
+  ]);
+
+  background.vao = gl.createVertexArray();
+  gl.bindVertexArray(background.vao);
+  
+  background.vertexs = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, background.vertexs);
+  gl.bufferData(gl.ARRAY_BUFFER, backgroundVertexs_js, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray( program.a_position);
+  gl.vertexAttribPointer( program.a_position, 2, gl.FLOAT, false, 0, 0);
+
+  background.uv = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, background.uv);
+  gl.bufferData(gl.ARRAY_BUFFER, backgroundUv_js, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray( program.a_uv);
+  gl.vertexAttribPointer( program.a_uv, 2, gl.FLOAT, false, 0, 0);
+
+
 }
 
 function SetupUi( gl , scene ) {
@@ -82,20 +207,36 @@ function SetupUi( gl , scene ) {
   new ui_slider.Slider_A2( "Amplitude 2" , 0.0000001 , scene.Search( "planet" ).a2 , 25 , gl , scene );
   new ui_slider.Slider_A3( "Amplitude 3" , 0.0000001 , scene.Search( "planet" ).a3 , 25 , gl , scene );
   new ui_slider.Slider_A4( "Amplitude 4" , 0.0000001 , scene.Search( "planet" ).a4 , 25 , gl , scene );
-  new ui_slider.Slider_F1( "Frequency 1" , 0.0000001 , scene.Search( "planet" ).f1 , 0.15 , gl , scene );
-  new ui_slider.Slider_F2( "Frequency 2" , 0.0000001 , scene.Search( "planet" ).f2 , 0.15 , gl , scene );
-  new ui_slider.Slider_F3( "Frequency 3" , 0.0000001 , scene.Search( "planet" ).f3 , 0.15 , gl , scene );
-  new ui_slider.Slider_F4( "Frequency 4" , 0.0000001 , scene.Search( "planet" ).f4 , 0.15 , gl , scene );
+  new ui_slider.Slider_F1( "Frequency 1" , 0.0000001 , scene.Search( "planet" ).f1 , 0.05 , gl , scene );
+  new ui_slider.Slider_F2( "Frequency 2" , 0.0000001 , scene.Search( "planet" ).f2 , 0.05 , gl , scene );
+  new ui_slider.Slider_F3( "Frequency 3" , 0.0000001 , scene.Search( "planet" ).f3 , 0.05 , gl , scene );
+  new ui_slider.Slider_F4( "Frequency 4" , 0.0000001 , scene.Search( "planet" ).f4 , 0.05 , gl , scene );
 }
 
 async function SetupProgramBaseProgram( programs , gl ) { 
   programs.baseProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "shader.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "shader.frag" ) );
   programs.baseProgram.a_position = gl.getAttribLocation( programs.baseProgram.program , "a_position" );
-  programs.baseProgram.u_matrix = gl.getUniformLocation( programs.baseProgram.program , "u_matrix" );
+  programs.baseProgram.u_view = gl.getUniformLocation( programs.baseProgram.program , "u_view" );
+  programs.baseProgram.u_projection = gl.getUniformLocation( programs.baseProgram.program , "u_projection" );
   programs.baseProgram.u_inverseTransposedMatrix = gl.getUniformLocation( programs.baseProgram.program , "u_inverseTransposedMatrix" );
+  programs.baseProgram.u_world = gl.getUniformLocation( programs.baseProgram.program , "u_world" );
   programs.baseProgram.u_texture = gl.getUniformLocation( programs.baseProgram.program , "u_texture" );
   programs.baseProgram.a_uv_cord = gl.getAttribLocation( programs.baseProgram.program , "a_uv_cord" );
   programs.baseProgram.a_normal = gl.getAttribLocation( programs.baseProgram.program , "a_normal" );
+  programs.baseProgram.u_textureMatrix = gl.getUniformLocation( programs.baseProgram.program , "u_textureMatrix" );
+  programs.baseProgram.u_texture = gl.getUniformLocation( programs.baseProgram.program , "u_texture" );
+  programs.baseProgram.u_shadowMap = gl.getUniformLocation( programs.baseProgram.program , "u_shadowMap" );
+
+  programs.shadowProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "shadow.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "shadow.frag" ) );
+  programs.shadowProgram.a_position = gl.getAttribLocation( programs.shadowProgram.program , "a_position" );
+  programs.shadowProgram.u_view = gl.getUniformLocation( programs.shadowProgram.program , "u_view" );
+  programs.shadowProgram.u_projection = gl.getUniformLocation( programs.shadowProgram.program , "u_projection" );
+  programs.shadowProgram.u_world = gl.getUniformLocation( programs.shadowProgram.program , "u_world" );
+
+  programs.backgroundProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "background.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "background.frag" ) );
+  programs.backgroundProgram.a_position = gl.getAttribLocation( programs.backgroundProgram.program , "a_position" );
+  programs.backgroundProgram.a_uv = gl.getAttribLocation( programs.backgroundProgram.program , "a_uv" );
+  programs.backgroundProgram.u_texture = gl.getUniformLocation( programs.backgroundProgram.program , "u_texture" );
 }
 
 function InputToFunction( camera , deltaTime ) {

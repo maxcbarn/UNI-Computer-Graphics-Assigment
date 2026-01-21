@@ -31,6 +31,7 @@ export class Slider {
         this.textOutput.style.gap = "0px";
         this.textOutput.style.padding = "0px";
         this.textOutput.style.margin = "0px";
+        this.textOutput.style.color = "white";
         div.appendChild( this.textOutput );
         div.appendChild( this.slider );
         document.getElementById( "slidecontainer" ).appendChild( div );
