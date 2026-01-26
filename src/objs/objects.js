@@ -764,5 +764,22 @@ export class Sphere extends Obj {
         this.indexBufferWireframe = indexBufferWireframeGPU;
         this.countWireframe = this.indexBufferWireframeCalculated.length * 2;
         this.countFaces = this.indexBufferFacesCalculated.length * 3;
+        this.RemoveTrees( gl );
+    }
+
+    RemoveTrees( gl ) {
+        for ( let index = 0 ; index < this.children.length ; index++ ) {
+            if( this.children[index].name == "tree" ) {
+                this.children[index].ClearVao( gl );
+            }    
+        }
+
+        for ( let index = 0 ; index < this.children.length ; index++ ) {
+            if( this.children[index].name == "tree" ) {
+                this.children.splice( index , this.children.length - index - 1 );
+                break;
+            }     
+        }
+        
     }
 }

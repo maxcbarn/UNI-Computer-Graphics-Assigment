@@ -317,7 +317,6 @@ async function AddTree( gl , scene , pickingFrameBuffer , programs , objs ) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null );
   let position = Array.from(data);
   if( position[3] == 1 ) {
-    console.log( position );
     scene.Search( "planet" ).AddTree( gl , programs , position , objs );
   }
   mouseInput.clicked = false;
