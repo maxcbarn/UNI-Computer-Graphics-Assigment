@@ -5,6 +5,7 @@ import { PerlinNoise3d } from "../math/perlin.js";
 import * as gl_lib from "../gl/gl_js_lib.js";
 
 export class Obj {
+    id = 0;
     name = "obj"
     vao = null;
     vertexs = [];
@@ -37,6 +38,22 @@ export class Obj {
         for (let index = 0; index < this.children.length; index++) {
             this.children[index].Animate( gl , deltaTime );
         }        
+    }
+
+    CalculatePickingTexture( gl , projectionMatrix , viewMatrix ) {
+        gl.useProgram( this.program.pickingProgram.program );
+        gl.uniformMatrix4fv( this.program.pickingProgram.u_view , true , viewMatrix );
+        gl.uniformMatrix4fv( this.program.pickingProgram.u_projection , true , projectionMatrix );
+        gl.uniformMatrix4fv( this.program.pickingProgram.u_world , true , this.worldMatrix );
+        gl.uniform1i( this.program.pickingProgram.u_id , this.id );
+        gl.bindVertexArray( this.vao );
+    
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBufferFaces);
+        gl.drawElements( gl.TRIANGLES , this.countFaces , gl.UNSIGNED_SHORT, 0);
+
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculatePickingTexture( gl , projectionMatrix , viewMatrix );
+        }
     }
 
     CalculateWorldMatrix( parentMatrix ) {
@@ -146,6 +163,144 @@ export class Obj {
     }
 }
 
+export class Tree extends Obj {
+    height = 0;
+    treeFolder = 0;
+    constructor( gl , program , name , position ) {
+        super( gl , program , name );
+        this.rotation = vector4.Create( 0 , 0 , 0 , 1 );
+        this.scale = vector4.Create( 0.015 , 0.015 , 0.015 , 1 );
+        this.position = vector4.Create( 0 , 0 , 0 , 1 );
+        this.treeFolder = ( Math.floor(Math.random() * (4 - 1 + 1)) + 1 );
+        this.SetPosition( position );
+
+        /* let dir = [ 0 , this.height , 0 , 1];
+
+        let yaw1 = Math.atan2(position[0], position[2]);
+        let yaw2 = Math.atan2(dir[0], dir[2]);
+        let yaw  = yaw2 - yaw1;
+
+        let pitch1 = Math.atan2(position[1], Math.sqrt(position[0]*position[0] + position[2]*position[2]));
+        let pitch2 = Math.atan2(dir[1], Math.sqrt(dir[0]*dir[0] + dir[2]*dir[2]));
+        let pitch  = pitch2 - pitch1;
+
+        this.rotation[0] = pitch;
+        this.rotation[1] = yaw; 
+
+        console.log( this.rotation , position ); */
+    }
+    async LoadObj( gl , objs ) {
+        let obj = objs.tree[this.treeFolder - 1];
+        this.indexFaces = obj.triangles;
+        this.normals = obj.normals;
+        this.uv = obj.uv;
+        this.vertexs = obj.vertexs;
+        for ( let index = 0 ; index < this.vertexs.length ; index++ ) {
+            this.uv.push( [ 0.5 , 0.5 ] );
+        }
+        this.CreateVao( gl );
+    }
+
+    CalculateWorldMatrix( parentMatrix ) {
+        this.worldMatrix = matrix4x4.Identity();
+        //this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.ZRotation( this.rotation[2] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Translation( this.position[0] , this.position[1] , this.position[2] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.XRotation( this.rotation[0] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.YRotation( this.rotation[1] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Scaling( this.scale[0] , this.scale[1] , this.scale[2] ) );
+        this.worldMatrix = matrix4x4.Mult( parentMatrix , this.worldMatrix );
+        
+        this.inverseTransposeWorldMatrix = matrix4x4.Transpose( matrix4x4.Inverse( this.worldMatrix ) );
+
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculateWorldMatrix( this.worldMatrix );
+        }
+    }
+
+
+    SetPosition( position ) {
+        this.height = vector4.Dist( vector4.Identity() , position );
+        this.position = position;
+    }
+
+    Animate( gl , deltaTime ) {
+        super.Animate( gl , deltaTime ); 
+    }
+
+
+    CreateVao( gl ) {
+        const vertices = new Float32Array(this.vertexs.flat());
+        /* const indicesWireframe = new Uint16Array(this.indexBufferWireframeCalculated.flat()); */
+        const indicesFaces = new Uint16Array(this.indexFaces.flat());
+        const uvBufferGPU = new Float32Array(this.uv.flat());
+        const normalBufferGPU = new Float32Array(this.normals.flat());
+        const vao = gl.createVertexArray();
+        
+        gl.bindVertexArray(vao);
+        
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_position);
+        gl.vertexAttribPointer(this.program.baseProgram.a_position, 3, gl.FLOAT, false, 0, 0);
+
+        const uvBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, uvBufferGPU, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_uv_cord);
+        gl.vertexAttribPointer(this.program.baseProgram.a_uv_cord, 2, gl.FLOAT, false, 0, 0);
+        
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, normalBufferGPU, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(this.program.baseProgram.a_normal);
+        gl.vertexAttribPointer(this.program.baseProgram.a_normal, 3, gl.FLOAT, false, 0, 0);
+
+        const indexBufferFacesGPU = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferFacesGPU);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesFaces, gl.STATIC_DRAW);
+/* 
+        const indexBufferWireframeGPU = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferWireframeGPU);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesWireframe , gl.STATIC_DRAW); */
+
+        if( this.texture == null ) {
+            let texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            // Fill the texture with a 1x1 blue pixel.
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+            
+            // Asynchronously load an image
+            let image = new Image();
+            image.src = "./resources/trees/" + this.treeFolder + "/texture.png";
+            image.addEventListener('load', function() {
+              // Now that the image has loaded make copy it to the texture.
+              gl.bindTexture(gl.TEXTURE_2D, texture);
+              gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+              gl.generateMipmap(gl.TEXTURE_2D);
+            });
+            this.texture = texture;
+        } else {
+            gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        }
+        
+        
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+        this.vao = vao;
+        this.normalBuffer = normalBuffer;
+        this.uvBuffer = uvBuffer;
+        this.indexBufferFaces = indexBufferFacesGPU;
+        this.indexBufferWireframe = null;
+        this.countWireframe = 0;
+        this.countFaces = this.indexFaces.length * 3;
+    }
+}
+
 export class Cloud extends Obj {
     baseHeight = 0;
     height = 0;
@@ -164,8 +319,8 @@ export class Cloud extends Obj {
         this.rotationSpeed = vector4.Create( Math.random() % 0.20 , Math.random() % 0.20 , Math.random() % 0.20 , 1 );
         this.SetHeight( radiusPlanet );
     }
-    async LoadObj( gl ) {
-        let obj = await gl_lib.LoadObj( "./resources/cloud.obj" );
+    async LoadObj( gl , objs ) {
+        let obj = objs.cloud;
         this.indexFaces = obj.triangles;
         this.normals = obj.normals;
         this.uv = obj.uv;
@@ -302,6 +457,11 @@ export class World extends Obj {
             this.children[index].CalculateShadowDepth( gl , projectionMatrix , viewMatrix );
         }
     }
+    CalculatePickingTexture( gl , projectionMatrix , viewMatrix ) {
+        for (let index = 0; index < this.children.length; index++) {
+            this.children[index].CalculatePickingTexture( gl , projectionMatrix , viewMatrix );
+        }
+    }
 }
 
 export class Sphere extends Obj {
@@ -312,6 +472,7 @@ export class Sphere extends Obj {
         { bottom: 4.5,    top: 9, uv: [0.5, 0.3], name:"mountain" }, // mountain
         { bottom: 9,    top: 1e9, uv: [0.5, 0.1], name:"snow" } // snow
     ]
+    treeQuantity = 0;
     vertexsBeforeNoise = [];
     vertexs = [];
     indexBufferWireframeCalculated = [];
@@ -333,12 +494,18 @@ export class Sphere extends Obj {
     h3 = 8000;
     h4 = 8000;
 
-    constructor( gl , program , name ) {
+    constructor( gl , program , name , objs ) {
         super( gl , program , name );
         this.Lathe( gl );
+        this.id = 1;
         this.rotation = vector4.Create( 0 , 0 , 0 , 1 ); 
         this.scale = vector4.Create( 1 , 1 , 1 , 1 );
         this.position = vector4.Create( 0 , 0 , 0 , 1 );
+    }
+
+    async AddTree( gl , program , position , objs ) {
+        this.children.push( new Tree( gl , program , "tree" , position ) );
+        await this.children[this.children.length -1 ].LoadObj( gl , objs );
     }
 
     Lathe( gl ) {

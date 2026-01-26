@@ -28,6 +28,7 @@ export class Slider {
         this.slider.style.gap = "0px";
         this.slider.style.padding = "0px";
         this.slider.style.margin = "0px";
+        this.slider.style.setProperty("--slider-color", "purple");
         this.textOutput.style.gap = "0px";
         this.textOutput.style.padding = "0px";
         this.textOutput.style.margin = "0px";

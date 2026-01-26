@@ -26,7 +26,7 @@ export async function LoadObj( pathToObj ) {
     }
     if( splited[0] == "v" && splited[1] == "t" && splited[2] == " "  ) {
       vertexInfo = splited.split( " " );
-      info.uv.push( [ parseFloat( vertexInfo[vertexInfo.length - 3] ) , parseFloat( vertexInfo[vertexInfo.length - 2] ) , parseFloat( vertexInfo[vertexInfo.length - 1] ) ] );
+      info.uv.push( [ parseFloat( vertexInfo[vertexInfo.length - 2] ) , parseFloat( vertexInfo[vertexInfo.length - 1] ) ] );
       continue;
     }
     if( splited[0] == "f" && splited[1] == " "  ) {
@@ -40,7 +40,7 @@ export async function LoadObj( pathToObj ) {
 }
 
 export function Setup( canvas , gl ) {
-  gl.clearColor( 0.5, 0.5, 0.5, 1.0 );
+  gl.clearColor( 0 , 0 , 0 , 0 );
   gl.canvas.width = canvas.width;
   gl.canvas.height = canvas.height;
   /* gl.enable( gl.CULL_FACE ); */

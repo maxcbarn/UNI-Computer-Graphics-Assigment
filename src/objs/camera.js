@@ -4,10 +4,10 @@ import { matrix4x4 } from "../math/matrix.js";
 export class Camera {   
     up = vector4.Create( 0 , 1 , 0 , 0 );
     forward = vector4.Create( 0 , 0 , 1 , 0 );
-    translation = vector4.Create( 0 , 0 , -750 , 1 );  
+    translation = vector4.Create( 0 , 0 , -700 , 1 );
     rotationX = 0;
     rotationY = 0;
-    lowDistance = 1;
+    lowDistance = 1;s
     highDistance = 1000;
     moveSpeed = 100;
     rotationSpeed = 1;
@@ -111,6 +111,6 @@ export class Camera {
         //this.forward = vector4.Normalize( vector4.MultByEscalar( auxTranslation , -1 ) );
 
         //console.log( matrix4x4.LookAt( auxTranslation , [0,0,0,1] , this.up ) , matrix4x4.ViewMatrix( auxTranslation , this.up , this.forward ) );
-        return matrix4x4.LookAt( auxTranslation , [0,0,0,1] , this.up );
+        return matrix4x4.LookAt( auxTranslation , [0,0,0,1] , [ 0 , 1 , 0 , 1 ] );
     }
 }

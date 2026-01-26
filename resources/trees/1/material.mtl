@@ -1,0 +1,13 @@
+# MTL file - created by a modified js OBJExporter
+
+newmtl tree-spruce
+Tr 0.0000
+Tf 1.0000 1.0000 1.0000
+illum 1
+Pr 0.8828441500663757
+Pds 1
+Pl 1
+Ka 1 1 1
+Kd 0.64000004529953 0.64000004529953 0.64000004529953
+Ke 0 0 0
+map_Kd tree-spruce.png

@@ -2,7 +2,7 @@
 
 import { matrix4x4 } from "./math/matrix.js";
 import { vector4 } from "./math/vector.js";
-import { Obj, Sphere , World , Cloud } from "./objs/objects.js";
+import { Obj, Sphere , World , Cloud , Tree  } from "./objs/objects.js";
 import * as gl_lib from "./gl/gl_js_lib.js" ;
 import * as web_lib from "./web_lib/js_lib.js" ;
 import * as ui_slider from "./web_lib/ui_slider.js";
@@ -17,9 +17,15 @@ var inputCamera = {
   moveDown: false,
 } 
 
+var mouseInput = {
+  clicked: false,
+  position: [ 0 , 0 ],
+}
+
 async function main( ) {
   const htmlObjs = { canvas:null };
-  const programs = { baseProgram: {} , shadowProgram:{} , backgroundProgram:{} };
+  const programs = { baseProgram: {} , shadowProgram:{} , backgroundProgram:{} , pickingProgram:{} };
+  const objs = { tree:[] , cloud:null };
   let scene;
   let camera = new Camera();
   
@@ -32,9 +38,16 @@ async function main( ) {
 
   await SetupProgramBaseProgram( programs , gl );
 
-  await gl_lib.LoadObj( "./resources/cloud.obj" );
+  
 
   let then = 0;
+  
+  objs.cloud = await gl_lib.LoadObj( "./resources/cloud.obj" );
+  objs.tree.push( await gl_lib.LoadObj( "./resources/trees/1/tree.obj" ) );
+  objs.tree.push( await gl_lib.LoadObj( "./resources/trees/2/tree.obj" ) );
+  objs.tree.push( await gl_lib.LoadObj( "./resources/trees/3/tree.obj" ) );
+  objs.tree.push( await gl_lib.LoadObj( "./resources/trees/4/tree.obj" ) );
+
 
   scene = new World( gl , null , "world" );
   scene.AddToScene( "world" , new Sphere( gl , programs , "planet" ) );
@@ -44,12 +57,12 @@ async function main( ) {
   scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-4" , scene.Search( "planet" ).radius ) );
   scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-5" , scene.Search( "planet" ).radius ) );
   scene.AddToScene( "planet" , new Cloud( gl , programs , "cloud-6" , scene.Search( "planet" ).radius ) );
-  await scene.Search( "cloud-1" ).LoadObj( gl );
-  await scene.Search( "cloud-2" ).LoadObj( gl );
-  await scene.Search( "cloud-3" ).LoadObj( gl );
-  await scene.Search( "cloud-4" ).LoadObj( gl );
-  await scene.Search( "cloud-5" ).LoadObj( gl );
-  await scene.Search( "cloud-6" ).LoadObj( gl );
+  await scene.Search( "cloud-1" ).LoadObj( gl , objs );
+  await scene.Search( "cloud-2" ).LoadObj( gl , objs );
+  await scene.Search( "cloud-3" ).LoadObj( gl , objs );
+  await scene.Search( "cloud-4" ).LoadObj( gl , objs );
+  await scene.Search( "cloud-5" ).LoadObj( gl , objs );
+  await scene.Search( "cloud-6" ).LoadObj( gl , objs );
   scene.Search( "planet" ).drawWireframe = false;
 
   SetupUi( gl , scene );
@@ -67,6 +80,41 @@ async function main( ) {
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D, depthTexture, 0);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+  const pickingTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const pickingBuffer = gl.createRenderbuffer();
+  gl.bindRenderbuffer(gl.RENDERBUFFER, pickingBuffer);
+
+  function setFramebufferAttachmentSizes(width, height) {
+    gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
+    const level = 0;
+    const internalFormat = gl.RGBA32F;
+    const border = 0;
+    const format = gl.RGBA;
+    const type = gl.FLOAT;
+    const data = null;
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,width, height, border, format, type, data);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, pickingBuffer);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+  }
+  setFramebufferAttachmentSizes(1, 1);
+
+  const pickingFrameBuffer = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFrameBuffer);
+  const attachmentPoint = gl.COLOR_ATTACHMENT0;
+  const level = 0;
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, attachmentPoint, gl.TEXTURE_2D, pickingTexture, level);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickingBuffer);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    console.error("Framebuffer incomplete:", status.toString(16));
+  }
 
   let rotation = 0;
   let background = { texture: null , vertexs: null, uv: null, vao: null };
@@ -75,7 +123,7 @@ async function main( ) {
 
   requestAnimationFrame( DrawScene );
   
-  function DrawScene( now ) {
+  async function DrawScene( now ) {
     now *= 0.001;
     let deltaTime = now - then;
     then = now;
@@ -94,11 +142,21 @@ async function main( ) {
     let matrix = matrix4x4.YRotation( rotation );
 
     InputToFunction( camera , deltaTime );
+    await AddTree( gl , scene , pickingFrameBuffer , programs , objs );
 
     scene.Animate( gl , deltaTime );
     scene.CalculateWorldMatrix( matrix4x4.Identity() );
 
     DrawBackGround( gl , programs.backgroundProgram , background );
+
+    setFramebufferAttachmentSizes(gl.canvas.width, gl.canvas.height)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFrameBuffer );
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    scene.CalculatePickingTexture( gl , camera.GetProjectionMatrix( gl ) , camera.GetViewMatrix( gl ) );
+
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer );
     gl.viewport(0, 0, depthTextureSize, depthTextureSize);
@@ -237,6 +295,29 @@ async function SetupProgramBaseProgram( programs , gl ) {
   programs.backgroundProgram.a_position = gl.getAttribLocation( programs.backgroundProgram.program , "a_position" );
   programs.backgroundProgram.a_uv = gl.getAttribLocation( programs.backgroundProgram.program , "a_uv" );
   programs.backgroundProgram.u_texture = gl.getUniformLocation( programs.backgroundProgram.program , "u_texture" );
+
+  programs.pickingProgram.program = gl_lib.CreateProgram( gl , await gl_lib.CreateShader( gl , gl.VERTEX_SHADER , "picking.vert" ) , await gl_lib.CreateShader( gl , gl.FRAGMENT_SHADER , "picking.frag" ) );
+  programs.pickingProgram.a_position = gl.getAttribLocation( programs.pickingProgram.program , "a_position" );
+  programs.pickingProgram.u_view = gl.getUniformLocation( programs.pickingProgram.program , "u_view" );
+  programs.pickingProgram.u_projection = gl.getUniformLocation( programs.pickingProgram.program , "u_projection" );
+  programs.pickingProgram.u_world = gl.getUniformLocation( programs.pickingProgram.program , "u_world" );
+  programs.pickingProgram.u_id = gl.getUniformLocation( programs.pickingProgram.program , "u_id" );
+}
+
+async function AddTree( gl , scene , pickingFrameBuffer , programs , objs ) {
+  if( mouseInput.clicked == false ) {
+    return;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFrameBuffer );
+  const data = new Float32Array(4);
+  gl.readPixels( mouseInput.position[0], mouseInput.position[1], 1, 1, gl.RGBA, gl.FLOAT, data);  
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null );
+  let position = Array.from(data);
+  position[1] *= -1;
+  if( position[3] == 1 ) {
+    scene.Search( "planet" ).AddTree( gl , programs , position , objs );
+  }
+  mouseInput.clicked = false;
 }
 
 function InputToFunction( camera , deltaTime ) {
@@ -309,7 +390,11 @@ function SetupInput( ) {
         break;
     }
   });
+  document.addEventListener("click", function(event) {
+    mouseInput.position[0] = event.clientX;
+    mouseInput.position[1] = event.clientY;
+    mouseInput.clicked = true;
+  });
 }
-
 
 main();
