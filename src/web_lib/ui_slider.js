@@ -64,6 +64,9 @@ export class Slider_Radius extends Slider {
         this.scene.Search( "cloud-1" ).SetHeight( this.value );
         this.scene.Search( "cloud-2" ).SetHeight( this.value );
         this.scene.Search( "cloud-3" ).SetHeight( this.value );
+        this.scene.Search( "cloud-4" ).SetHeight( this.value );
+        this.scene.Search( "cloud-5" ).SetHeight( this.value );
+        this.scene.Search( "cloud-6" ).SetHeight( this.value );
     }
 }
 
