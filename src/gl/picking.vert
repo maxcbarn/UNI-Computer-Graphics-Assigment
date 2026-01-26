@@ -9,6 +9,6 @@ uniform mat4 u_world;
 out vec4 v_clickedVertex;
 
 void main() {
-    v_clickedVertex = u_world * a_position;
+    v_clickedVertex = u_world * vec4( a_position.xyz , 1 );
     gl_Position = u_projection * u_view * u_world * a_position;
 }

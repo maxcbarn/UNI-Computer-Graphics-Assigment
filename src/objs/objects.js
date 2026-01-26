@@ -166,28 +166,18 @@ export class Obj {
 export class Tree extends Obj {
     height = 0;
     treeFolder = 0;
-    constructor( gl , program , name , position ) {
+    basePlanetRadius = 150;
+    constructor( gl , program , name , position , planetRadius ) {
         super( gl , program , name );
         this.rotation = vector4.Create( 0 , 0 , 0 , 1 );
         this.scale = vector4.Create( 0.015 , 0.015 , 0.015 , 1 );
         this.position = vector4.Create( 0 , 0 , 0 , 1 );
         this.treeFolder = ( Math.floor(Math.random() * (4 - 1 + 1)) + 1 );
+        if( this.treeFolder == 4 || this.treeFolder == 3 ) {
+            this.scale = vector4.Create( 0.0075 , 0.0075 , 0.0075 , 1 );
+        }
+        this.scale = vector4.MultByEscalar( this.scale , planetRadius / this.basePlanetRadius );
         this.SetPosition( position );
-
-        /* let dir = [ 0 , this.height , 0 , 1];
-
-        let yaw1 = Math.atan2(position[0], position[2]);
-        let yaw2 = Math.atan2(dir[0], dir[2]);
-        let yaw  = yaw2 - yaw1;
-
-        let pitch1 = Math.atan2(position[1], Math.sqrt(position[0]*position[0] + position[2]*position[2]));
-        let pitch2 = Math.atan2(dir[1], Math.sqrt(dir[0]*dir[0] + dir[2]*dir[2]));
-        let pitch  = pitch2 - pitch1;
-
-        this.rotation[0] = pitch;
-        this.rotation[1] = yaw; 
-
-        console.log( this.rotation , position ); */
     }
     async LoadObj( gl , objs ) {
         let obj = objs.tree[this.treeFolder - 1];
@@ -203,10 +193,8 @@ export class Tree extends Obj {
 
     CalculateWorldMatrix( parentMatrix ) {
         this.worldMatrix = matrix4x4.Identity();
-        //this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.ZRotation( this.rotation[2] ) );
         this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Translation( this.position[0] , this.position[1] , this.position[2] ) );
-        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.XRotation( this.rotation[0] ) );
-        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.YRotation( this.rotation[1] ) );
+        this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.RotateBasedOnUpVector( this.position ) );
         this.worldMatrix = matrix4x4.Mult( this.worldMatrix , matrix4x4.Scaling( this.scale[0] , this.scale[1] , this.scale[2] ) );
         this.worldMatrix = matrix4x4.Mult( parentMatrix , this.worldMatrix );
         
@@ -504,7 +492,7 @@ export class Sphere extends Obj {
     }
 
     async AddTree( gl , program , position , objs ) {
-        this.children.push( new Tree( gl , program , "tree" , position ) );
+        this.children.push( new Tree( gl , program , "tree" , position , this.radius ) );
         await this.children[this.children.length -1 ].LoadObj( gl , objs );
     }
 

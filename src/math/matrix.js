@@ -118,19 +118,27 @@ export var matrix4x4 = {
             0,     0,     0,      1,
         ];
     },
-    LookAt: function( eye, target, up ) {
+    RotateBasedOnUpVector: function( desiredUp ) {
+        let u = vector4.Normalize( desiredUp );
+        let ref = Math.abs(u[1]) < 0.999 ? vector4.Create(0, 1, 0, 0) : vector4.Create(1, 0, 0, 0);
 
-        // forward (direção da câmera)
+        let r = vector4.Normalize(vector4.Cross( ref , u));
+        let f = vector4.Normalize( vector4.Cross( r , u ) );
+
+        return [
+            r[0], u[0], f[0], 0,
+            r[1], u[1], f[1], 0,
+            r[2], u[2], f[2], 0,
+            0,    0,    0,    1,
+        ];
+    },
+    LookAt: function( eye, target, up ) {
         let f = vector4.Normalize(
             vector4.Sub( eye , target )
         );
-
-        // right
         let r = vector4.Normalize(
             vector4.Cross( f, up )
         );
-
-        // up corrigido
         let u = vector4.Cross( r, f );
 
         // matriz de view

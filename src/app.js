@@ -38,9 +38,10 @@ async function main( ) {
 
   await SetupProgramBaseProgram( programs , gl );
 
-  
-
-  let then = 0;
+  const ext = gl.getExtension("EXT_color_buffer_float");
+  if (!ext) {
+    console.error("EXT_color_buffer_float not supported");
+  }
   
   objs.cloud = await gl_lib.LoadObj( "./resources/cloud.obj" );
   objs.tree.push( await gl_lib.LoadObj( "./resources/trees/1/tree.obj" ) );
@@ -121,6 +122,8 @@ async function main( ) {
 
   CreateBackGround( gl , background , programs.backgroundProgram );
 
+  let then = 0;
+
   requestAnimationFrame( DrawScene );
   
   async function DrawScene( now ) {
@@ -156,7 +159,6 @@ async function main( ) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     scene.CalculatePickingTexture( gl , camera.GetProjectionMatrix( gl ) , camera.GetViewMatrix( gl ) );
-
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer );
     gl.viewport(0, 0, depthTextureSize, depthTextureSize);
@@ -310,11 +312,12 @@ async function AddTree( gl , scene , pickingFrameBuffer , programs , objs ) {
   }
   gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFrameBuffer );
   const data = new Float32Array(4);
+  mouseInput.position[1] = gl.canvas.height - mouseInput.position[1];
   gl.readPixels( mouseInput.position[0], mouseInput.position[1], 1, 1, gl.RGBA, gl.FLOAT, data);  
   gl.bindFramebuffer(gl.FRAMEBUFFER, null );
   let position = Array.from(data);
-  position[1] *= -1;
   if( position[3] == 1 ) {
+    console.log( position );
     scene.Search( "planet" ).AddTree( gl , programs , position , objs );
   }
   mouseInput.clicked = false;
